@@ -1,5 +1,36 @@
 {% extends "network/layout.html" %}
 
 {% block body %}
-    TODO
+    <div class="container mt-4">
+        <h3>All Posts</h3>
+        
+        <!-- New Post Form (only show if user is logged in) -->
+        {% if user.is_authenticated %}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5>New Post</h5>
+                    <form method="post">
+                        {% csrf_token %}
+                        <textarea name="content" class="form-control" rows="3" placeholder="What's on your mind?"></textarea>
+                        <button type="submit" class="btn btn-primary mt-2">Post</button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Display Posts -->
+        {% for post in posts %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">
+                        <a href="{% url 'profile' post.user.username %}">{{ post.user.username }}</a>
+                    </h6>
+                    <p class="card-text">{{ post.content }}</p>
+                    <small class="text-muted">{{ post.formatted_timestamp }}</small>
+                </div>
+            </div>
+        {% empty %}
+            <p>No posts yet.</p>
+        {% endfor %}
+    </div>
 {% endblock %}
