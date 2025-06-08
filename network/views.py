@@ -4,6 +4,8 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.core.paginator import Paginator
+from django.http import JsonResponse
+import json
 
 from .models import User, Post, Follow
 
@@ -47,6 +49,25 @@ def following(request):
     return render(request, "network/following.html", {
         "posts_of_the_page": posts_of_the_page
     })
+
+
+def edit_post(request, post_id):
+    if request.method == 'POST':
+        try:
+            post = Post.objects.get(id=post_id)
+            # Security check
+            if post.user != request.user:
+                return JsonResponse({'error': 'Permission denied'}, status=403)
+            
+            data = json.loads(request.body)
+            post.content = data['content']
+            post.save()
+            
+            return JsonResponse({'success': True})
+        except Post.DoesNotExist:
+            return JsonResponse({'error': 'Post not found'}, status=404)
+    
+    return JsonResponse({'error': 'Invalid method'}, status=405)
 
 
 def login_view(request):

@@ -22,17 +22,41 @@
         {% for post in posts_of_the_page %}
             <div class="card mb-3">
                 <div class="card-body">
+                    <!-- Username stays the same -->
                     <h6 class="card-subtitle mb-2 text-muted">
                         <a href="{% url 'profile' post.user.username %}">{{ post.user.username }}</a>
                     </h6>
-                    <p class="card-text">{{ post.content }}</p>
-                    <small class="text-muted">{{ post.formatted_timestamp }}</small>
+                    
+                    <!-- Wrap post content in a div with unique ID -->
+                    <div id="post-content-{{ post.id }}">
+                        <p class="card-text">{{ post.content }}</p>
+                    </div>
+                    
+                    <!-- Add hidden edit form -->
+                    <div id="edit-form-{{ post.id }}" style="display: none;">
+                        <textarea class="form-control mb-2" rows="3" id="edit-textarea-{{ post.id }}">{{ post.content }}</textarea>
+                        <button class="btn btn-sm btn-success me-2" onclick="saveEdit({{ post.id }})">Save</button>
+                        <button class="btn btn-sm btn-secondary" onclick="cancelEdit({{ post.id }})">Cancel</button>
+                    </div>
+                    
+                    <!-- Date and Edit button in same line -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ post.formatted_timestamp }}</small>
+                        
+                        <!-- Edit button - only show if it's the user's own post -->
+                        {% if user.is_authenticated and user == post.user %}
+                            <button class="btn btn-sm btn-outline-primary" onclick="startEdit({{ post.id }})">
+                                Edit
+                            </button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         {% empty %}
             <p>No posts yet.</p>
         {% endfor %}
     </div>
+    
     <nav aria-label="Page navigation example" class="d-flex justify-content-center">
         <ul class="pagination">
             {% if posts_of_the_page.has_previous %}
@@ -43,4 +67,76 @@
             {% endif %}
         </ul>
     </nav>
+
+     <script>
+        // Function to start editing
+        function startEdit(postId) {
+            // Hide the post content
+            document.getElementById('post-content-' + postId).style.display = 'none';
+            // Show the edit form
+            document.getElementById('edit-form-' + postId).style.display = 'block';
+        }
+        
+        // Function to cancel editing
+        function cancelEdit(postId) {
+            // Show the post content
+            document.getElementById('post-content-' + postId).style.display = 'block';
+            // Hide the edit form
+            document.getElementById('edit-form-' + postId).style.display = 'none';
+        }
+        
+        // Function to save the edit
+        function saveEdit(postId) {
+            // Get the new content from textarea
+            const newContent = document.getElementById('edit-textarea-' + postId).value;
+            
+            // Simple validation
+            if (!newContent.trim()) {
+                alert('Post cannot be empty!');
+                return;
+            }
+            
+            // Send to server
+            fetch('/edit_post/' + postId + '/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({'content': newContent})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the content on the page
+                    document.querySelector('#post-content-' + postId + ' .card-text').textContent = newContent;
+                    // Hide edit form and show content
+                    cancelEdit(postId);
+                    alert('Post updated successfully!');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Network error. Please try again.');
+            });
+        }
+        
+        // Function to get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+
 {% endblock %}
