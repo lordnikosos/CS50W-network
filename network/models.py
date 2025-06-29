@@ -19,8 +19,26 @@ class Post(models.Model):
 
     def __str__(self):
         return f"{self.user.username} posted at {self.formatted_timestamp()}  | {self.time_since()} minutes ago"
+    
+    def like_count(self):
+        return self.likes.count()
+        
+    def is_liked_by(self, user):
+        if user.is_authenticated:
+            return self.likes.filter(user=user).exists()
+        return False
 
-# Add this to network/models.py after the Post model
+class Like(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='likes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'post')\
+        
+    def __str__(self):
+        return f"{self.user.username} likes {self.post.id}"
+    
 class Follow(models.Model):
     follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name="following")
     following = models.ForeignKey(User, on_delete=models.CASCADE, related_name="followers")

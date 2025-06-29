@@ -5,9 +5,11 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.core.paginator import Paginator
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 import json
 
-from .models import User, Post, Follow
+from .models import User, Post, Follow, Like
 
 
 def index(request):
@@ -18,6 +20,10 @@ def index(request):
             return HttpResponseRedirect(reverse("index"))
     
     posts = Post.objects.all().order_by('-timestamp')  # Get all posts, newest first
+
+    # Add like information for each post
+    for post in posts:
+        post.is_liked_by_user = post.is_liked_by(request.user) if request.user.is_authenticated else False
 
     # Pagination
     paginator = Paginator(posts, 10)
@@ -40,6 +46,10 @@ def following(request):
     
     # Get posts from those users directly (much more efficient)
     following_posts = Post.objects.filter(user__in=following_users).order_by('-timestamp')
+    
+    # Add like information for each post
+    for post in following_posts:
+        post.is_liked_by_user = post.is_liked_by(request.user)
     
     # Pagination
     paginator = Paginator(following_posts, 10)
@@ -152,5 +162,37 @@ def profile(request, username):
         "following_count": following_count,
         "is_following": is_following,
     })
+
+
+def toggle_like(request, post_id):
+    try:
+        post = Post.objects.get(id=post_id)
+        like, created = Like.objects.get_or_create(
+            user=request.user,
+            post=post
+        )
+
+        if not created:
+            like.delete()
+            liked = False
+        else:
+            liked = True
+
+        return JsonResponse({
+            'success': True,
+            'liked': liked,
+            'liked_count': post.like_count()
+        })
+    
+    except Post.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Post not found'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
 

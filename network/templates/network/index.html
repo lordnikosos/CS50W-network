@@ -39,15 +39,33 @@
                         <button class="btn btn-sm btn-secondary" onclick="cancelEdit({{ post.id }})">Cancel</button>
                     </div>
                     
-                    <!-- Date and Edit button in same line -->
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ post.formatted_timestamp }}</small>
+                    <!-- Date, Like, and Edit button in same line -->
+                    <div class="d-flex justify-content-between">
+                        <div class="d-flex flex-column align-items-start">
+                            <small class="text-muted">{{ post.formatted_timestamp }}</small>
+                            
+                            <!-- Like button and count -->
+                            {% if user.is_authenticated %}
+                                <button class="btn btn-sm btn-link text-decoration-none p-0 mt-1" 
+                                        id="like-btn-{{ post.id }}"
+                                        onclick="toggleLike({{ post.id }})">
+                                    <i class="{% if post.is_liked_by_user %}fas{% else %}far{% endif %} fa-heart {% if post.is_liked_by_user %}text-danger{% else %}text-muted{% endif %} fa-lg"></i>
+                                    <span id="like-count-{{ post.id }}" class="{% if post.is_liked_by_user %}text-danger{% else %}text-muted{% endif %} fs-6">{{ post.like_count }}</span>
+                                </button>
+                            {% else %}
+                                <span class="text-muted mt-1">
+                                    <i class="far fa-heart fa-lg"></i> <span class="fs-6">{{ post.like_count }}</span>
+                                </span>
+                            {% endif %}
+                        </div>
                         
                         <!-- Edit button - only show if it's the user's own post -->
                         {% if user.is_authenticated and user == post.user %}
-                            <button class="btn btn-sm btn-outline-primary" onclick="startEdit({{ post.id }})">
-                                Edit
-                            </button>
+                            <div class="d-flex align-items-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="startEdit({{ post.id }})">
+                                    Edit
+                                </button>
+                            </div>
                         {% endif %}
                     </div>
                 </div>
@@ -118,6 +136,89 @@
                 }
             })
             .catch(error => {
+                alert('Network error. Please try again.');
+            });
+        }
+
+        // Function to toggle like
+        function toggleLike(postId) {
+            const likeBtn = document.getElementById('like-btn-' + postId);
+            const likeCount = document.getElementById('like-count-' + postId);
+            const heartIcon = likeBtn.querySelector('i');
+            const currentCount = parseInt(likeCount.textContent);
+            
+            // Optimistically update the UI
+            if (heartIcon.classList.contains('far')) {
+                // If not liked, update to liked state
+                heartIcon.classList.remove('far');
+                heartIcon.classList.add('fas');
+                heartIcon.classList.remove('text-muted');
+                heartIcon.classList.add('text-danger');
+                likeCount.classList.remove('text-muted');
+                likeCount.classList.add('text-danger');
+                likeCount.textContent = currentCount + 1;
+            } else {
+                // If liked, update to unliked state
+                heartIcon.classList.remove('fas');
+                heartIcon.classList.add('far');
+                heartIcon.classList.remove('text-danger');
+                heartIcon.classList.add('text-muted');
+                likeCount.classList.remove('text-danger');
+                likeCount.classList.add('text-muted');
+                likeCount.textContent = currentCount - 1;
+            }
+
+            // Send request to server
+            fetch('/toggle_like/' + postId + '/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    // If server request fails, revert the changes
+                    if (data.liked) {
+                        heartIcon.classList.remove('far');
+                        heartIcon.classList.add('fas');
+                        heartIcon.classList.remove('text-muted');
+                        heartIcon.classList.add('text-danger');
+                        likeCount.classList.remove('text-muted');
+                        likeCount.classList.add('text-danger');
+                        likeCount.textContent = currentCount + 1;
+                    } else {
+                        heartIcon.classList.remove('fas');
+                        heartIcon.classList.add('far');
+                        heartIcon.classList.remove('text-danger');
+                        heartIcon.classList.add('text-muted');
+                        likeCount.classList.remove('text-danger');
+                        likeCount.classList.add('text-muted');
+                        likeCount.textContent = currentCount - 1;
+                    }
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                // If network error, revert the changes
+                if (heartIcon.classList.contains('fas')) {
+                    heartIcon.classList.remove('fas');
+                    heartIcon.classList.add('far');
+                    heartIcon.classList.remove('text-danger');
+                    heartIcon.classList.add('text-muted');
+                    likeCount.classList.remove('text-danger');
+                    likeCount.classList.add('text-muted');
+                    likeCount.textContent = currentCount - 1;
+                } else {
+                    heartIcon.classList.remove('far');
+                    heartIcon.classList.add('fas');
+                    heartIcon.classList.remove('text-muted');
+                    heartIcon.classList.add('text-danger');
+                    likeCount.classList.remove('text-muted');
+                    likeCount.classList.add('text-danger');
+                    likeCount.textContent = currentCount + 1;
+                }
                 alert('Network error. Please try again.');
             });
         }
